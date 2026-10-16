@@ -131,6 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         faceItem.submenu = makeFaceMenu(title: "Face", faceTarget: nil)
         main.addItem(faceItem)
 
+        let voiceItem = NSMenuItem()
+        voiceItem.submenu = makeVoiceMenu()
+        main.addItem(voiceItem)
+
         let windowItem = NSMenuItem()
         let windowMenu = NSMenu(title: "Window")
         let newItem = windowMenu.addItem(withTitle: "New Face Window", action: #selector(newFace), keyEquivalent: "n")
@@ -169,13 +173,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menu.items.last?.target = faceTarget  // nil = responder chain = front window
             menu.items.last?.representedObject = style.rawValue
         }
+        if faceTarget != nil {
+            menu.addItem(.separator())
+            let voiceItem = menu.addItem(withTitle: "Voice", action: nil, keyEquivalent: "")
+            voiceItem.submenu = makeVoiceMenu()
+        }
         return menu
+    }
+
+    /// Installed `say` voices: English ones first, everything else tucked in a submenu.
+    private func makeVoiceMenu() -> NSMenu {
+        let menu = NSMenu(title: "Voice")
+        func item(_ title: String, voice: String) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: #selector(pickVoice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = voice
+            return item
+        }
+        menu.addItem(item("System Default", voice: ""))
+        menu.addItem(.separator())
+        let voices = Self.installedVoices
+        for v in voices where v.locale.hasPrefix("en") {
+            menu.addItem(item("\(v.name)  (\(v.locale.replacingOccurrences(of: "en_", with: "")))", voice: v.name))
+        }
+        let others = NSMenu(title: "Other Languages")
+        for v in voices where !v.locale.hasPrefix("en") { others.addItem(item("\(v.name)  (\(v.locale))", voice: v.name)) }
+        if !others.items.isEmpty {
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Other Languages", action: nil, keyEquivalent: "").submenu = others
+        }
+        return menu
+    }
+
+    private static let installedVoices: [(name: String, locale: String)] = {
+        let say = Process()
+        let pipe = Pipe()
+        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        say.arguments = ["-v", "?"]
+        say.standardOutput = pipe
+        guard (try? say.run()) != nil else { return [] }
+        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        say.waitUntilExit()
+        // Lines look like: "Kate (Enhanced)     en_GB    # Hello! My name is Kate."
+        let regex = try! NSRegularExpression(pattern: #"^(.+?)\s+([a-z]{2,3}_[A-Za-z0-9]+)\s+#"#, options: .anchorsMatchLines)
+        let ns = output as NSString
+        var seen = Set<String>()
+        return regex.matches(in: output, range: NSRange(location: 0, length: ns.length))
+            .map { (ns.substring(with: $0.range(at: 1)), ns.substring(with: $0.range(at: 2))) }
+            .filter { seen.insert($0.0).inserted }  // some voices are listed twice
+            .sorted { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
+    }()
+
+    @objc private func pickVoice(_ sender: NSMenuItem) {
+        guard let voice = sender.representedObject as? String else { return }
+        Prefs.voice = voice.isEmpty ? nil : voice
+        Speaker.shared.speak(voice.isEmpty ? "This is the system voice." : "Hi Joshua, I'm \(voice.replacingOccurrences(of: " (Enhanced)", with: "").replacingOccurrences(of: " (Premium)", with: "")).")
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
         case #selector(toggleOnTop): item.state = Prefs.stayOnTop ? .on : .off
         case #selector(toggleMute): item.state = Prefs.muted ? .on : .off
+        case #selector(pickVoice(_:)): item.state = item.representedObject as? String == (Prefs.voice ?? "") ? .on : .off
         default: break
         }
         return true
@@ -210,7 +269,10 @@ enum Prefs {
         set { UserDefaults.standard.set(newValue, forKey: "muted") }
     }
     /// Optional `say` voice name, e.g. `defaults write io.purplehippo.talkingface voice Samantha`.
-    static var voice: String? { UserDefaults.standard.string(forKey: "voice") }
+    static var voice: String? {
+        get { UserDefaults.standard.string(forKey: "voice") }
+        set { UserDefaults.standard.set(newValue, forKey: "voice") }
+    }
     /// Seconds to shift the mouth vs. the audio; positive = mouth earlier.
     /// e.g. `defaults write io.purplehippo.talkingface lipSyncOffset -float 0.05`
     static var lipSyncOffset: Double { UserDefaults.standard.double(forKey: "lipSyncOffset") }
