@@ -30,7 +30,7 @@ final class FaceWindow: NSObject, NSWindowDelegate, NSMenuItemValidation {
             backing: .buffered, defer: false)
         super.init()
         window.isReleasedWhenClosed = false
-        window.title = "Talking Face"
+        window.title = "Mike"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
@@ -121,9 +121,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Hide Talking Face", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Hide Mike", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Talking Face", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Mike", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
 
@@ -169,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         add("New Face Window", #selector(newFace), "n")
         menu.addItem(.separator())
         for (i, style) in FaceStyle.allCases.enumerated() {
-            add(style.title, #selector(FaceWindow.pickStyle(_:)), "\(i + 1)")
+            add(style.title, #selector(FaceWindow.pickStyle(_:)), i < 9 ? "\(i + 1)" : i == 9 ? "0" : "")
             menu.items.last?.target = faceTarget  // nil = responder chain = front window
             menu.items.last?.representedObject = style.rawValue
         }
@@ -255,7 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func stopTalking() { Speaker.shared.stop() }
 
     @objc private func sayTest() {
-        Speaker.shared.speak("Hello! I'm your talking face. When Claude finishes an answer, I'll read it out loud.")
+        Speaker.shared.speak("Hello! I'm Mike. You talk to Claude, and I say the answer out loud.")
     }
 }
 

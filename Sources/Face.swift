@@ -35,10 +35,11 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin, trippy, creepy, windows, crayon, alien
+    case mike, bot, kawaii, visor, pumpkin, trippy, creepy, windows, crayon, alien
 
     var title: String {
         switch self {
+        case .mike: "Mike"
         case .bot: "Classic Bot"
         case .kawaii: "Kawaii"
         case .visor: "Visor"
@@ -62,6 +63,59 @@ enum FaceStyle: String, CaseIterable {
         let bsod = t.truncatingRemainder(dividingBy: 23) < 1.4 && open < 0.05
 
         switch self {
+        case .mike:
+            let white = RGB(255, 255, 255)
+            faceColor = white; mouthCenter = (32, 13)
+            // The stage: red curtains, wooden floor and a spotlight pool.
+            for x in 0..<64 where x < 6 || x > 57 {
+                let fold = (x < 6 ? x : 63 - x) % 3 == 0
+                let drape = x < 6 ? 5 - x : x - 58   // curtains sweep outwards at the bottom
+                p.rect(x, 0, 1, 26 + drape / 2, fold ? RGB(95, 5, 15) : RGB(160, 15, 30))
+            }
+            for x in 0..<64 where x < 20 || x > 44 {
+                p.dot(x, 0, RGB(160, 15, 30))
+                if (x % 6) != 0 { p.dot(x, 1, RGB(160, 15, 30)) }
+            }
+            for x in 0..<64 { p.rect(x, 29, 1, 3, x % 9 == 0 ? RGB(45, 25, 10) : RGB(80, 45, 18)) }
+            p.ellipse(32, 30, 15, 1.6, RGB(150, 120, 50))
+            // Stand, handle, gold band and a little red bow tie.
+            p.rect(31, 24, 2, 6, RGB(110, 110, 120))
+            p.ellipse(32, 29, 5, 0.8, RGB(140, 140, 150))
+            for y in 19...24 { let w = 7 - (y - 19) / 2; p.rect(32 - w / 2 - 1, y, w + 1, 1, RGB(70, 70, 85)) }
+            p.rect(25, 17, 14, 2, RGB(230, 185, 60))
+            for i in 0..<4 {
+                p.rect(28 + i, 18 - i / 2, 1, 1 + i, RGB(230, 30, 50))
+                p.rect(35 - i, 18 - i / 2, 1, 1 + i, RGB(230, 30, 50))
+            }
+            p.rect(31, 18, 2, 2, RGB(255, 70, 90))
+            // The grille head, with a mesh pattern.
+            for y in 1...17 {
+                for x in 21...43 {
+                    let u = Double(x - 32) / 11, v = (Double(y) - 9) / 8.4
+                    let d = u * u + v * v
+                    guard d <= 1 else { continue }
+                    p.dot(x, y, d > 0.8 ? RGB(215, 220, 230) : (x + y) % 2 == 0 ? RGB(165, 170, 185) : RGB(105, 110, 125))
+                }
+            }
+            // Googly eyes: pupils sag with gravity and rattle around while he talks.
+            p.eyes(EyeSpec(centers: [27, 37], top: 3, width: 9, height: 9, color: white, glance: 0) { p, cx, top in
+                let cy = top + 4
+                let phase = cx < 32 ? 0.0 : 2.1
+                p.disc(cx, cy, 4.2, white)
+                let rattle = open * 1.8 + 0.25
+                let dx = sin(t * 9.3 + phase) * rattle + Double(glance) * 0.6
+                let dy = 1.4 - abs(cos(t * 6.1 + phase)) * rattle
+                p.clearDisc(cx + Int(dx.rounded()), cy + Int(dy.rounded()), 1.7)
+            }, e)
+            // Mouth: a dark opening in the grille.
+            if open < 0.06 {
+                for x in 28...36 { p.clear(x, 13 + (abs(x - 32) < 3 ? 1 : 0), 1, 1) }
+            } else {
+                let rx = 2 + wide * 2.5 + open * 1.5, ry = 0.8 + open * 2.6 * (1 - 0.4 * wide)
+                p.clearDisc(32, 14, rx, ry)
+                if open > 0.45 { p.rect(31, 14 + Int(ry) - 1, 3, 1, RGB(255, 90, 120)) }   // tongue
+            }
+
         case .bot:
             let c = RGB(41, 230, 255)
             faceColor = c; mouthCenter = (32, 25)
@@ -319,6 +373,9 @@ enum FaceStyle: String, CaseIterable {
         guard mouth.open < 0.05 else { return }
         switch e.mouth {
         case .none: break
+        case .oh where self == .mike:
+            p.clear(27, 13, 11, 3)
+            p.clearDisc(32, 14, 2, 2)
         case .oh:
             p.clear(13, mouthCenter.y - 5, 39, 11)
             p.ring(mouthCenter.x, mouthCenter.y, 3, faceColor)
@@ -453,6 +510,16 @@ struct Pixels {
     }
 
     mutating func disc(_ cx: Int, _ cy: Int, _ r: Double, _ c: RGB) { ellipse(cx, cy, r, r, c) }
+
+    /// Switches off an elliptical patch of LEDs (dark holes like pupils and mouths).
+    mutating func clearDisc(_ cx: Int, _ cy: Int, _ rx: Double, _ ry: Double? = nil) {
+        let ry = ry ?? rx
+        for y in -Int(ry)...Int(ry) {
+            for x in -Int(rx)...Int(rx) where Double(x * x) / (rx * rx) + Double(y * y) / (ry * ry) <= 1 {
+                clear(cx + x, cy + y, 1, 1)
+            }
+        }
+    }
 
     /// Draws round glowing LEDs, letterboxed to keep the 2:1 grid.
     func render(in context: GraphicsContext, size: CGSize) {
