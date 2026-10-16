@@ -2,7 +2,7 @@
 
 A small macOS app that shows an animated 64×32 LED-style face and reads Claude Code replies out loud, with the mouth lip-synced to the voice.
 
-Faces: Classic Bot, Kawaii, Visor, Jack-o'-lantern, Psychedelic, Creepy, Windows XP (⌘1–⌘7). ⌘N opens another face window (e.g. one per monitor); each keeps its own face and position, and they all share one voice.
+Faces: Classic Bot, Kawaii, Visor, Jack-o'-lantern, Psychedelic, Creepy, Windows XP, Crayon Drawing (⌘1–⌘8). ⌘N opens another face window (e.g. one per monitor); each keeps its own face and position, and they all share one voice.
 
 ## Build & run
 
@@ -28,4 +28,4 @@ defaults write io.purplehippo.talkingface voice -string "Kate (Enhanced)"
 defaults write io.purplehippo.talkingface lipSyncOffset -float 0.05   # mouth earlier (+) / later (-)
 ```
 
-Keys: ⌘F pull a random face · ⌘T stay on top · ⇧⌘M mute · Esc stop talking · ⌘J say a test line.
+Keys: ⌘F pull a random face · ⌘T stay on top · ⇧⌘M mute · Esc or ⌘. stop talking · ⌘J say a test line.

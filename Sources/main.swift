@@ -76,6 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         buildMainMenu()
 
+        // A bare Esc never reaches the menu, so catch it directly.
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 53 else { return event }
+            Speaker.shared.stop()
+            return nil
+        }
+
         server = HookServer(port: HookServer.defaultPort)
         server?.start()
 
@@ -152,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         add("Stay on Top", #selector(toggleOnTop), "t")
         add("Mute", #selector(toggleMute), "m", [.command, .shift])
         menu.addItem(.separator())
-        add("Stop Talking", #selector(stopTalking), "\u{1b}", [])
+        add("Stop Talking", #selector(stopTalking), ".")  // Esc is also caught in applicationDidFinishLaunching
         add("Say Something", #selector(sayTest), "j")
         add("Pull a Face", #selector(pullAFace), "f")
         add("New Face Window", #selector(newFace), "n")

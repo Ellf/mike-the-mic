@@ -35,7 +35,7 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin, trippy, creepy, windows
+    case bot, kawaii, visor, pumpkin, trippy, creepy, windows, crayon
 
     var title: String {
         switch self {
@@ -46,6 +46,7 @@ enum FaceStyle: String, CaseIterable {
         case .trippy: "Psychedelic"
         case .creepy: "Creepy"
         case .windows: "Windows XP"
+        case .crayon: "Crayon Drawing"
         }
     }
 
@@ -216,6 +217,49 @@ enum FaceStyle: String, CaseIterable {
                 let profile = (1 - x * x).squareRoot() * (1 - wide) + (1 - 0.25 * abs(x)) * wide
                 let h = max(1, Int((open * (8 - 3 * wide) * profile).rounded()))
                 p.rect(18 + i * 4, 25 - h / 2, 3, h, white)
+            }
+
+        case .crayon:
+            let yellow = RGB(255, 190, 40), blue = RGB(70, 140, 255), red = RGB(255, 60, 50)
+            let brown = RGB(170, 100, 40), pink = RGB(255, 110, 170), white = RGB(255, 255, 255)
+            faceColor = red; mouthCenter = (32, 22)
+            // Hand-drawn "boil": every line jiggles a little, redrawn 6 times a second.
+            let frame = Int(t * 6)
+            func wob(_ i: Int) -> Double { fract(sin(Double(frame * 131 + i) * 12.9898) * 43758.5) - 0.5 }
+            // Wonky, slightly squashed head that doesn't quite join up.
+            for i in 0..<130 {
+                let a = Double(i) / 130 * 2 * .pi - 1.3
+                let r = 1 + 0.04 * sin(a * 3) + wob(i / 8) * 0.05
+                p.dot(32 + Int((cos(a) * 25 * r).rounded()), 18 + Int((sin(a) * 13.5 * r).rounded()), yellow)
+            }
+            // Three sticky-up hairs.
+            for (n, (x0, dx)) in [(27, -2), (32, 0), (37, 3)].enumerated() {
+                for y in 0...4 { p.dot(x0 + dx * (4 - y) / 4 + Int(wob(50 + n).rounded()), y, brown) }
+            }
+            // Scribbled cheeks.
+            for (cx, cy) in [(14, 20), (50, 20)] {
+                for i in 0..<6 { p.dot(cx + i - 3, cy + (i % 2 == 0 ? 0 : 1), pink) }
+            }
+            // Mismatched eyes: big one, little one.
+            p.eyes(EyeSpec(centers: [23, 42], top: 6, width: 9, height: 9, color: blue, glance: glance / 2) { p, cx, top in
+                let big = cx < 32
+                let jx = Int(wob(cx).rounded())
+                p.ring(cx + jx, top + 4, big ? 4.5 : 3.2, blue)
+                p.rect(cx + jx + (big ? 1 : -1), top + (big ? 4 : 5), 2, 2, white)
+            }, e)
+            // Big lopsided grin with one tooth missing.
+            let half = 9 + wide * 3
+            for x in Int(32 - half)...Int(32 + half) {
+                let d = Double(x - 32) / half
+                let lift = d > 0 ? 1.0 : 0.0   // right side curls up higher
+                let top = 20 - Int((d * d * (2 + lift)).rounded())
+                let depth = Int(((1 - d * d) * (2 + open * 6)).rounded())
+                p.dot(x, top + depth + Int(wob(80 + x / 4).rounded()), red)
+                if open > 0.15, depth > 1 {
+                    p.dot(x, top, red)
+                    p.rect(x, top + 1, 1, depth - 1, RGB(90, 0, 0))
+                    if x != 31, x != 32, abs(x - 32) < 6 { p.dot(x, top + 1, white) }   // teeth with a gap
+                }
             }
         }
 
