@@ -35,7 +35,7 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin, trippy
+    case bot, kawaii, visor, pumpkin, trippy, creepy
 
     var title: String {
         switch self {
@@ -44,6 +44,7 @@ enum FaceStyle: String, CaseIterable {
         case .visor: "Visor"
         case .pumpkin: "Jack-o'-lantern"
         case .trippy: "Psychedelic"
+        case .creepy: "Creepy"
         }
     }
 
@@ -52,6 +53,8 @@ enum FaceStyle: String, CaseIterable {
         let open = Double(mouth.open), wide = Double(mouth.wide)
         let mouthCenter: (x: Int, y: Int)
         let faceColor: RGB
+        // Creepy face: a quick red jolt every ~11 seconds.
+        let glitch = t.truncatingRemainder(dividingBy: 11) < 0.22
 
         switch self {
         case .bot:
@@ -148,7 +151,41 @@ enum FaceStyle: String, CaseIterable {
                 let h = max(1, Int((open * (9 - 4 * wide) * profile + wobble).rounded()))
                 p.rect(11 + i * 4, 25 - h / 2, 3, h, .hue(base + Double(i) * 0.09))
             }
+
+        case .creepy:
+            let c = glitch ? RGB(255, 30, 30) : RGB(205, 225, 200)
+            faceColor = c; mouthCenter = (32, 24)
+            // Faint static in the dark.
+            let frame = Int(t * 12)
+            for i in 0..<7 {
+                let n = Double(frame * 7 + i)
+                p.dot(Int(fract(sin(n * 12.9898) * 43758.5) * 64), Int(fract(sin(n * 78.233) * 12345.6) * 32), RGB(45, 45, 45))
+            }
+            // Hollow sockets with tiny pupils that wander on their own.
+            p.eyes(EyeSpec(centers: [19, 45], top: 6, width: 11, height: 9, color: c, glance: 0) { p, cx, top in
+                p.ellipse(cx, top + 4, 5.5, 4.5, c)
+                p.ellipse(cx, top + 4, 4.5, 3.5, RGB(30, 0, 0))
+                let px = cx + Int((sin(t * 0.7) * 2.4).rounded())
+                let py = top + 4 + Int((sin(t * 0.43 + 1) * 1.4).rounded())
+                p.dot(px, py, glitch ? RGB(255, 255, 255) : RGB(255, 40, 40))
+            }, e)
+            // Long stitched grin that curls up at the ends and splits open to talk.
+            for x in 10...54 {
+                let d = Double(x - 32) / 22
+                let y = 24 - Int((d * d * 5).rounded())
+                let gap = Int((open * 6 * (1 - d * d)).rounded())
+                if gap > 0 {
+                    p.rect(x, y + 1, 1, gap, RGB(80, 0, 0))
+                    if x % 3 == 0 { p.dot(x, y + 1, c) }      // teeth
+                    p.dot(x, y + gap + 1, c)
+                } else if x % 4 == 0, x > 12, x < 52 {
+                    p.dot(x, y - 1, c); p.dot(x, y + 1, c)     // stitches
+                }
+                p.dot(x, y, c)
+            }
         }
+
+        if self == .creepy, glitch { p.shift(t.truncatingRemainder(dividingBy: 11) < 0.11 ? 3 : -2) }
 
         // Silly mouths only while it isn't talking.
         guard mouth.open < 0.05 else { return }
@@ -225,6 +262,8 @@ extension Pixels {
     }
 }
 
+private func fract(_ v: Double) -> Double { v - v.rounded(.down) }
+
 struct RGB: Hashable {
     let r: UInt8, g: UInt8, b: UInt8
     init(_ r: Double, _ g: Double, _ b: Double) {
@@ -271,6 +310,16 @@ struct Pixels {
         for j in 0..<max(0, h) {
             for i in 0..<max(0, w) where x + i >= 0 && x + i < Self.cols && y + j >= 0 && y + j < Self.rows {
                 lit[(y + j) * Self.cols + x + i] = nil
+            }
+        }
+    }
+
+    /// Slides every row sideways (wrapping), for glitch effects.
+    mutating func shift(_ dx: Int) {
+        let old = lit
+        for y in 0..<Self.rows {
+            for x in 0..<Self.cols {
+                lit[y * Self.cols + x] = old[y * Self.cols + ((x - dx) % Self.cols + Self.cols) % Self.cols]
             }
         }
     }
