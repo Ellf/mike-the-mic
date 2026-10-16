@@ -35,7 +35,7 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin, trippy, creepy, windows, crayon
+    case bot, kawaii, visor, pumpkin, trippy, creepy, windows, crayon, alien
 
     var title: String {
         switch self {
@@ -47,6 +47,7 @@ enum FaceStyle: String, CaseIterable {
         case .creepy: "Creepy"
         case .windows: "Windows XP"
         case .crayon: "Crayon Drawing"
+        case .alien: "Friendly Alien"
         }
     }
 
@@ -260,6 +261,44 @@ enum FaceStyle: String, CaseIterable {
                     p.rect(x, top + 1, 1, depth - 1, RGB(90, 0, 0))
                     if x != 31, x != 32, abs(x - 32) < 6 { p.dot(x, top + 1, white) }   // teeth with a gap
                 }
+            }
+
+        case .alien:
+            let green = RGB(110, 255, 120), white = RGB(255, 255, 255)
+            faceColor = green; mouthCenter = (32, 24)
+            // Antennae that wobble, with bobbles that light up when it talks.
+            let bob = sin(t * 3)
+            let glow = open > 0.1 ? RGB(255, 240, 80) : RGB(255, 120 + 60 * sin(t * 2), 200)
+            for (side, base) in [(-1, 25), (1, 39)] {
+                let tipX = base + side * 5 + Int((bob * Double(side)).rounded())
+                for y in 1...5 { p.dot(base + (tipX - base) * (5 - y) / 4, y, green) }
+                p.disc(tipX, 1, 1.5, glow)
+            }
+            // Freckles.
+            for (x, y) in [(9, 19), (12, 21), (10, 23), (55, 19), (52, 21), (54, 23)] { p.dot(x, y, RGB(60, 170, 80)) }
+            // Big shiny almond eyes, tilted up at the outer corners.
+            p.eyes(EyeSpec(centers: [20, 44], top: 7, width: 14, height: 9, color: green, glance: glance / 2) { p, cx, top in
+                let tilt = cx < 32 ? 0.38 : -0.38
+                let cy = Double(top) + 4
+                for y in top - 2...top + 10 {
+                    for x in cx - 8...cx + 8 {
+                        let u = Double(x - cx), v = Double(y) - cy
+                        let a = u * cos(tilt) + v * sin(tilt), b = -u * sin(tilt) + v * cos(tilt)
+                        let d = (a / 7) * (a / 7) + (b / 4) * (b / 4)
+                        if d <= 1 { p.dot(x, y, d > 0.62 ? green : RGB(20, 70, 50)) }
+                    }
+                }
+                let inner = cx < 32 ? 2 : -3
+                p.rect(cx + inner, top + 1, 2, 2, white)            // sparkle
+                p.dot(cx - inner / 2 - (cx < 32 ? 2 : -2), top + 6, white)
+            }, e)
+            // Small happy mouth: a little smile that opens into an "o".
+            if open < 0.08 {
+                for x in 28...36 { p.dot(x, 24 - (abs(x - 32) > 3 ? 1 : 0), green) }
+            } else {
+                let rx = 1.5 + wide * 2.5 + open, ry = 1 + open * 3 * (1 - 0.4 * wide)
+                p.ellipse(32, 24, rx, ry, green)
+                if open > 0.3 { p.ellipse(32, 24, rx - 1, ry - 1, RGB(30, 60, 30)) }
             }
         }
 
