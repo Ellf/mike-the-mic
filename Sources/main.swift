@@ -164,7 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         add("Mute", #selector(toggleMute), "m", [.command, .shift])
         menu.addItem(.separator())
         add("Stop Talking", #selector(stopTalking), ".")  // Esc is also caught in applicationDidFinishLaunching
-        add("Say Something", #selector(sayTest), "j")
+        add("Tell a Joke", #selector(sayTest), "j")
         add("Pull a Face", #selector(pullAFace), "f")
         add("New Face Window", #selector(newFace), "n")
         menu.addItem(.separator())
@@ -255,7 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func stopTalking() { Speaker.shared.stop() }
 
     @objc private func sayTest() {
-        Speaker.shared.speak("Hello! I'm Mike. You talk to Claude, and I say the answer out loud.")
+        Task { Speaker.shared.speak(await Jokes.random()) }
     }
 }
 
