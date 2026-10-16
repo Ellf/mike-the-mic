@@ -6,15 +6,28 @@ struct FaceView: View {
             let t = timeline.date.timeIntervalSinceReferenceDate
             let mouth = Speaker.shared.mouth()
             let style = Prefs.faceStyle
+            let blink = t.truncatingRemainder(dividingBy: 4.3) < 0.13
+            let expression = Quirks.expression(at: t, blink: blink)
             Canvas { context, size in
                 var pixels = Pixels()
-                style.draw(&pixels, t: t, mouth: mouth)
+                style.draw(&pixels, t: t, mouth: mouth, expression: expression)
                 pixels.render(in: context, size: size)
             }
         }
         .background(Color.black)
         .ignoresSafeArea()
     }
+}
+
+/// Where a face's two eyes sit and how to draw one open eye.
+struct EyeSpec {
+    var centers: [Int]
+    var top: Int
+    var width: Int
+    var height: Int
+    var color: RGB
+    var glance: Int
+    var drawOpen: (inout Pixels, _ cx: Int, _ top: Int) -> Void
 }
 
 enum FaceStyle: String, CaseIterable {
@@ -29,17 +42,19 @@ enum FaceStyle: String, CaseIterable {
         }
     }
 
-    func draw(_ p: inout Pixels, t: Double, mouth: Mouth) {
-        // Shared timing: blink every ~4.3s, glance left/right now and then.
-        let blink = t.truncatingRemainder(dividingBy: 4.3) < 0.13
+    func draw(_ p: inout Pixels, t: Double, mouth: Mouth, expression e: Expression) {
         let glance = [0, -2, 0, 2, 0, 0][Int(t / 3.1) % 6]
         let open = Double(mouth.open), wide = Double(mouth.wide)
+        let mouthCenter: (x: Int, y: Int)
+        let faceColor: RGB
 
         switch self {
         case .bot:
             let c = RGB(41, 230, 255)
-            let eyeHeight = blink ? 1 : 8
-            for x in [14, 42] { p.rect(x + glance, 7 + (8 - eyeHeight) / 2, 8, eyeHeight, c) }
+            faceColor = c; mouthCenter = (32, 25)
+            p.eyes(EyeSpec(centers: [18, 46], top: 7, width: 8, height: 8, color: c, glance: glance) { p, cx, top in
+                p.rect(cx - 4, top, 8, 8, c)
+            }, e)
             // 9 bars outlining the opening: round and tall for "oh", wide and flat for "ee"/"s".
             for i in 0..<9 {
                 let x = Double(i - 4) / 4.5
@@ -49,45 +64,52 @@ enum FaceStyle: String, CaseIterable {
             }
 
         case .kawaii:
-            let white = RGB(255, 255, 255), pink = RGB(255, 79, 138)
-            for x in [18 + glance, 46 + glance] {
-                if blink {
-                    p.rect(x - 5, 12, 10, 1, white)
-                } else {
-                    p.disc(x, 12, 5, white)
-                    p.disc(x, 12, 3, RGB(58, 107, 255))
-                    p.dot(x + 1, 10, white)
-                }
-            }
+            let white = RGB(255, 255, 255), pink = RGB(255, 79, 138), lips = RGB(255, 122, 168)
+            faceColor = lips; mouthCenter = (32, 24)
+            p.eyes(EyeSpec(centers: [18, 46], top: 7, width: 10, height: 11, color: white, glance: glance) { p, cx, top in
+                p.disc(cx, top + 5, 5, white)
+                p.disc(cx, top + 5, 3, RGB(58, 107, 255))
+                p.dot(cx + 1, top + 3, white)
+            }, e)
             p.disc(10, 20, 2.5, pink)
             p.disc(54, 20, 2.5, pink)
             let rx = 2 + open * 1.5 + wide * 3
             let ry = 1 + open * 3 * (1 - 0.5 * wide)
-            p.ellipse(32, 24, rx, ry, RGB(255, 122, 168))
+            p.ellipse(32, 24, rx, ry, lips)
             if open > 0.3 { p.ellipse(32, 24, rx - 1, ry - 1, RGB(60, 0, 10)) }
 
         case .visor:
-            p.rect(6, 8, 52, 7, RGB(40, 0, 0))
+            let red = RGB(255, 48, 32)
+            faceColor = red; mouthCenter = (32, 24)
+            // Each "eye" is one half of the visor band; the scanner sweeps across both.
             let sx = 32 + sin(t * 2) * 22
-            for i in -6...6 {
-                let v = 1 - Double(abs(i)) / 7
-                p.rect(Int((sx + Double(i)).rounded()), 9, 1, 5, RGB(255 * v, 40 * v * v, 20 * v))
-            }
+            p.eyes(EyeSpec(centers: [19, 45], top: 8, width: 26, height: 7, color: red, glance: 0) { p, cx, top in
+                p.rect(cx - 13, top, 26, 7, RGB(40, 0, 0))
+                for i in -6...6 {
+                    let x = Int((sx + Double(i)).rounded())
+                    guard x >= cx - 13, x < cx + 13 else { continue }
+                    let v = 1 - Double(abs(i)) / 7
+                    p.rect(x, top + 1, 1, 5, RGB(255 * v, 40 * v * v, 20 * v))
+                }
+            }, e)
             // Waveform mouth: flat when silent, taller when loud, faster wiggle on hissy sounds.
             let speed = 0.35 + 0.4 * wide
             for x in 8..<56 {
                 let envelope = sin(Double(x - 8) / 48 * .pi)
                 let y = 24 + Int((sin(Double(x) * speed + t * 14) * open * 6 * envelope).rounded())
-                p.dot(x, y, RGB(255, 48, 32))
+                p.dot(x, y, red)
             }
 
         case .pumpkin:
             let flicker = 0.75 + 0.25 * sin(t * 20) * sin(t * 7)
             let c = RGB(255, 140 * flicker, 0)
-            for x in [17 + glance / 2, 45 + glance / 2] {
-                if blink { p.rect(x - 5, 12, 10, 1, c); continue }
-                for r in 0..<8 { p.rect(Int(Double(x) - Double(r) / 1.3), 6 + r, 1 + Int(Double(r) * 1.5), 1, c) }
-            }
+            faceColor = c; mouthCenter = (32, 22)
+            p.eyes(EyeSpec(centers: [18, 46], top: 6, width: 12, height: 8, color: c, glance: glance / 2) { p, cx, top in
+                for r in 0..<8 {
+                    let hw = Int(Double(r) * 0.75)
+                    p.rect(cx - hw, top + r, hw * 2 + 1, 1, c)
+                }
+            }, e)
             // Jagged grin: teeth stay put, the jaw drops as it talks.
             let left = 12 - Int(wide * 2), right = 52 + Int(wide * 2)
             let drop = Int((open * 5).rounded())
@@ -96,6 +118,79 @@ enum FaceStyle: String, CaseIterable {
                 let top = tooth ? 21 : 20
                 let bottom = 22 + drop + (tooth ? 0 : 1)
                 p.rect(x, top, 1, bottom - top, c)
+            }
+        }
+
+        // Silly mouths only while it isn't talking.
+        guard mouth.open < 0.05 else { return }
+        switch e.mouth {
+        case .none: break
+        case .oh:
+            p.clear(13, mouthCenter.y - 5, 39, 11)
+            p.ring(mouthCenter.x, mouthCenter.y, 3, faceColor)
+        case .tongue:
+            let tongue = RGB(255, 70, 110)
+            p.rect(mouthCenter.x - 2, mouthCenter.y + 1, 5, 3, tongue)
+            p.rect(mouthCenter.x - 1, mouthCenter.y + 4, 3, 1, tongue)
+        }
+    }
+}
+
+extension Pixels {
+    static let heart = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."]
+
+    /// Draws both eyes (and eyebrows) for the current expression.
+    mutating func eyes(_ spec: EyeSpec, _ e: Expression) {
+        for (index, baseX) in spec.centers.enumerated() {
+            let isLeft = index == 0
+            let state = isLeft ? e.left : e.right
+            let brow = isLeft ? e.leftBrow : e.rightBrow
+            let cx = baseX + spec.glance + (isLeft ? e.crossDX : -e.crossDX)
+            let top = spec.top + e.dy
+            let w = spec.width, h = spec.height
+            let mid = top + h / 2
+
+            switch state {
+            case .open:
+                spec.drawOpen(&self, cx, top)
+            case .half:
+                spec.drawOpen(&self, cx, top)
+                clear(cx - w / 2 - 1, top - 1, w + 3, h / 2 + 1)
+            case .shut:
+                rect(cx - w / 2, mid, w, 1, spec.color)
+            case .closed:
+                for i in 0..<w { dot(cx - w / 2 + i, mid + 1 - min(i, w - 1 - i) / 2, spec.color) }
+            case .heart:
+                for (y, row) in Self.heart.enumerated() {
+                    for (x, ch) in row.enumerated() where ch == "X" { dot(cx - 3 + x, mid - 3 + y, RGB(255, 40, 90)) }
+                }
+            case .cross:
+                let size = min(w, h, 7)
+                for k in 0..<size {
+                    dot(cx - size / 2 + k, mid - size / 2 + k, spec.color)
+                    dot(cx - size / 2 + k, mid + size / 2 - k, spec.color)
+                }
+            }
+
+            // Eyebrows only appear when an expression calls for them.
+            guard brow != .none else { continue }
+            let browY = top - 3 - (brow == .raised ? 2 : 0)
+            let span = w + 2
+            for i in 0..<span {
+                let towardNose = Double(isLeft ? i : span - 1 - i) / Double(span - 1)
+                var y = browY
+                if brow == .angry { y += Int((towardNose * 2).rounded()) }
+                if brow == .sad { y -= Int((towardNose * 2).rounded()) }
+                dot(cx - w / 2 - 1 + i, y, spec.color)
+            }
+        }
+    }
+
+    mutating func ring(_ cx: Int, _ cy: Int, _ r: Double, _ c: RGB) {
+        for y in -Int(r)...Int(r) {
+            for x in -Int(r)...Int(r) {
+                let d = Double(x * x + y * y).squareRoot()
+                if d <= r + 0.3, d >= r - 1.2 { dot(cx + x, cy + y, c) }
             }
         }
     }
@@ -130,6 +225,14 @@ struct Pixels {
         for y in -Int(ry)...Int(ry) {
             for x in -Int(rx)...Int(rx) where Double(x * x) / (rx * rx) + Double(y * y) / (ry * ry) <= 1 {
                 dot(cx + x, cy + y, c)
+            }
+        }
+    }
+
+    mutating func clear(_ x: Int, _ y: Int, _ w: Int, _ h: Int) {
+        for j in 0..<max(0, h) {
+            for i in 0..<max(0, w) where x + i >= 0 && x + i < Self.cols && y + j >= 0 && y + j < Self.rows {
+                lit[(y + j) * Self.cols + x + i] = nil
             }
         }
     }

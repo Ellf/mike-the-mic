@@ -28,4 +28,4 @@ defaults write io.purplehippo.talkingface voice -string "Kate (Enhanced)"
 defaults write io.purplehippo.talkingface lipSyncOffset -float 0.05   # mouth earlier (+) / later (-)
 ```
 
-Keys: ⌘T stay on top · ⇧⌘M mute · Esc stop talking · ⌘J say a test line.
+Keys: ⌘F pull a random face · ⌘T stay on top · ⇧⌘M mute · Esc stop talking · ⌘J say a test line.

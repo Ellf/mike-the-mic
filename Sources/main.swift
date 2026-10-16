@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         menu.addItem(.separator())
         add("Stop Talking", #selector(stopTalking), "\u{1b}", [])
         add("Say Something", #selector(sayTest), "j")
+        add("Pull a Face", #selector(pullAFace), "f")
         menu.addItem(.separator())
         for (i, style) in FaceStyle.allCases.enumerated() {
             add(style.title, #selector(pickStyle(_:)), "\(i + 1)")
@@ -117,6 +118,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func pickStyle(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let style = FaceStyle(rawValue: raw) { Prefs.faceStyle = style }
     }
+
+    @objc private func pullAFace() { Quirks.pullAFace() }
 
     @objc private func stopTalking() { Speaker.shared.stop() }
 
