@@ -1,13 +1,17 @@
 import SwiftUI
 
 struct FaceView: View {
+    let face: FaceWindow
+
     var body: some View {
         TimelineView(.animation) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+            let now = timeline.date.timeIntervalSinceReferenceDate
+            // Offset each window's clock so several faces blink and glance independently.
+            let t = now + Double(face.id) * 2.3
             let mouth = Speaker.shared.mouth()
-            let style = Prefs.faceStyle
+            let style = face.style
             let blink = t.truncatingRemainder(dividingBy: 4.3) < 0.13
-            let expression = Quirks.expression(at: t, blink: blink)
+            let expression = Quirks.expression(at: now, blink: blink, seed: face.id)
             Canvas { context, size in
                 var pixels = Pixels()
                 style.draw(&pixels, t: t, mouth: mouth, expression: expression)

@@ -47,18 +47,21 @@ enum Quirks {
     /// Set by the "Pull a Face" menu item to show a quirk right now.
     static var forced: (quirk: Quirk, start: Double)?
 
-    static func expression(at t: Double, blink: Bool) -> Expression {
-        if let forced, t - forced.start < Quirk.duration {
-            return forced.quirk.expression(at: t - forced.start)
+    /// `seed` gives each window its own random quirks; "Pull a Face" hits them all at once.
+    static func expression(at now: Double, blink: Bool, seed: Int = 0) -> Expression {
+        if let forced, now - forced.start < Quirk.duration {
+            return forced.quirk.expression(at: now - forced.start)
         }
+        let t = now + Double(seed) * 3.7
+        let salt = UInt64(seed) * 10
         // Every 8s slot has a ~70% chance of a quirk at a random moment within it.
         let slotLength = 8.0
         let slot = Int(t / slotLength)
-        if random(slot, 1) < 0.7 {
-            let start = Double(slot) * slotLength + 1 + random(slot, 2) * 4
+        if random(slot, salt + 1) < 0.7 {
+            let start = Double(slot) * slotLength + 1 + random(slot, salt + 2) * 4
             if t >= start, t < start + Quirk.duration {
                 let all = Quirk.allCases
-                return all[Int(random(slot, 3) * Double(all.count))].expression(at: t - start)
+                return all[Int(random(slot, salt + 3) * Double(all.count))].expression(at: t - start)
             }
         }
         var e = Expression()
