@@ -31,7 +31,7 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin
+    case bot, kawaii, visor, pumpkin, trippy
 
     var title: String {
         switch self {
@@ -39,6 +39,7 @@ enum FaceStyle: String, CaseIterable {
         case .kawaii: "Kawaii"
         case .visor: "Visor"
         case .pumpkin: "Jack-o'-lantern"
+        case .trippy: "Psychedelic"
         }
     }
 
@@ -118,6 +119,30 @@ enum FaceStyle: String, CaseIterable {
                 let top = tooth ? 21 : 20
                 let bottom = 22 + drop + (tooth ? 0 : 1)
                 p.rect(x, top, 1, bottom - top, c)
+            }
+
+        case .trippy:
+            let base = t * 0.25
+            faceColor = .hue(base); mouthCenter = (32, 25)
+            // Rainbow spirals: hue follows the angle and radius, and the whole thing spins.
+            p.eyes(EyeSpec(centers: [18, 46], top: 5, width: 13, height: 13, color: .hue(base), glance: glance / 2) { p, cx, top in
+                let cy = top + 6
+                for y in -6...6 {
+                    for x in -6...6 {
+                        let r = Double(x * x + y * y).squareRoot()
+                        guard r <= 6.3 else { continue }
+                        let angle = atan2(Double(y), Double(x)) / (2 * .pi)
+                        p.dot(cx + x, cy + y, .hue(angle + r * 0.14 - t * 0.6))
+                    }
+                }
+            }, e)
+            // Rainbow bars that ripple through the colours as it talks.
+            for i in 0..<11 {
+                let x = Double(i - 5) / 5.5
+                let profile = (1 - x * x).squareRoot() * (1 - wide) + (1 - 0.25 * abs(x)) * wide
+                let wobble = open > 0.05 ? 0 : sin(t * 3 + Double(i) * 0.7) * 0.6 + 0.6
+                let h = max(1, Int((open * (9 - 4 * wide) * profile + wobble).rounded()))
+                p.rect(11 + i * 4, 25 - h / 2, 3, h, .hue(base + Double(i) * 0.09))
             }
         }
 
@@ -201,6 +226,15 @@ struct RGB: Hashable {
     init(_ r: Double, _ g: Double, _ b: Double) {
         func clamp(_ v: Double) -> UInt8 { UInt8(max(0, min(255, v.rounded()))) }
         self.r = clamp(r); self.g = clamp(g); self.b = clamp(b)
+    }
+    /// Fully saturated rainbow colour; `h` wraps every 1.0. Quantised so the LED paths stay batched.
+    static func hue(_ h: Double) -> RGB {
+        let h6 = ((h.truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1) * 36).rounded() / 6
+        func channel(_ n: Double) -> Double {
+            let k = (n + h6).truncatingRemainder(dividingBy: 6)
+            return 255 * (1 - max(0, min(k, 4 - k, 1)))
+        }
+        return RGB(channel(5), channel(3), channel(1))
     }
     var color: Color { Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }
 }

@@ -2,7 +2,7 @@
 
 A small macOS app that shows an animated 64×32 LED-style face and reads Claude Code replies out loud, with the mouth lip-synced to the voice.
 
-Faces: Classic Bot, Kawaii, Visor, Jack-o'-lantern (⌘1–⌘4).
+Faces: Classic Bot, Kawaii, Visor, Jack-o'-lantern, Psychedelic (⌘1–⌘5).
 
 ## Build & run
 
