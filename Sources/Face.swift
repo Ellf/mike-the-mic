@@ -35,7 +35,7 @@ struct EyeSpec {
 }
 
 enum FaceStyle: String, CaseIterable {
-    case bot, kawaii, visor, pumpkin, trippy, creepy
+    case bot, kawaii, visor, pumpkin, trippy, creepy, windows
 
     var title: String {
         switch self {
@@ -45,6 +45,7 @@ enum FaceStyle: String, CaseIterable {
         case .pumpkin: "Jack-o'-lantern"
         case .trippy: "Psychedelic"
         case .creepy: "Creepy"
+        case .windows: "Windows XP"
         }
     }
 
@@ -55,6 +56,8 @@ enum FaceStyle: String, CaseIterable {
         let faceColor: RGB
         // Creepy face: a quick red jolt every ~11 seconds.
         let glitch = t.truncatingRemainder(dividingBy: 11) < 0.22
+        // Windows face: "crashes" to a blue screen every ~23 seconds (never mid-sentence).
+        let bsod = t.truncatingRemainder(dividingBy: 23) < 1.4 && open < 0.05
 
         switch self {
         case .bot:
@@ -183,8 +186,50 @@ enum FaceStyle: String, CaseIterable {
                 }
                 p.dot(x, y, c)
             }
+
+        case .windows:
+            let white = RGB(255, 255, 255)
+            faceColor = white; mouthCenter = (32, 25)
+            // Dimmed "Bliss" wallpaper: blue sky, drifting clouds, rolling green hill.
+            for x in 0..<64 {
+                let hill = 19 + Int((sin(Double(x) * 0.07 + 0.6) * 3 + sin(Double(x) * 0.19) * 0.8).rounded())
+                p.rect(x, 0, 1, hill, RGB(8, 40 + Double(hill) * 1.5, 120))
+                p.rect(x, hill, 1, 32 - hill, RGB(25, 95, 20))
+            }
+            for (i, cy) in [3, 8].enumerated() {
+                let cx = Int((t * (1.2 + Double(i) * 0.7) + Double(i) * 37).truncatingRemainder(dividingBy: 84)) - 10
+                p.ellipse(cx, cy, 4, 1.5, RGB(110, 130, 165))
+                p.ellipse(cx + 3, cy - 1, 2.5, 1.2, RGB(110, 130, 165))
+            }
+            // Eyes: waving four-colour Windows flags.
+            p.eyes(EyeSpec(centers: [18, 46], top: 5, width: 9, height: 9, color: white, glance: glance) { p, cx, top in
+                let colors = [RGB(242, 80, 34), RGB(127, 186, 0), RGB(0, 164, 239), RGB(255, 185, 0)]
+                for x in 0..<9 where x != 4 {
+                    let wave = Int((sin(Double(x) * 0.7 + t * 4) * 0.8).rounded())
+                    for y in 0..<9 where y != 4 {
+                        p.dot(cx - 4 + x, top + y + wave, colors[(y > 4 ? 2 : 0) + (x > 4 ? 1 : 0)])
+                    }
+                }
+            }, e)
+            for i in 0..<7 {
+                let x = Double(i - 3) / 3.5
+                let profile = (1 - x * x).squareRoot() * (1 - wide) + (1 - 0.25 * abs(x)) * wide
+                let h = max(1, Int((open * (8 - 3 * wide) * profile).rounded()))
+                p.rect(18 + i * 4, 25 - h / 2, 3, h, white)
+            }
         }
 
+        if self == .windows, bsod {
+            let blue = RGB(10, 90, 210), white = RGB(255, 255, 255)
+            p.rect(0, 0, 64, 32, blue)
+            p.rect(10, 8, 2, 2, white); p.rect(10, 14, 2, 2, white)                     // :
+            for y in 5...18 {                                                          // (
+                let d = (Double(y) - 11.5) / 7
+                p.dot(18 + Int((d * d * 4).rounded()), y, white)
+            }
+            for (y, w) in [(23, 40), (26, 30), (29, 12)] { p.rect(10, y, w, 1, RGB(150, 190, 255)) }
+            return
+        }
         if self == .creepy, glitch { p.shift(t.truncatingRemainder(dividingBy: 11) < 0.11 ? 3 : -2) }
 
         // Silly mouths only while it isn't talking.
