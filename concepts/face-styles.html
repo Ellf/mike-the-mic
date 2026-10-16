@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Talking face styles (64x32 LED)</title>
+<style>
+body{background:#111;color:#ddd;font-family:system-ui,sans-serif;margin:24px}
+h1{font-size:18px;margin:0 0 4px}p{margin:0 0 18px;color:#999;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;max-width:1000px}
+.card{background:#000;border:1px solid #333;border-radius:10px;padding:14px}
+.card h2{font-size:14px;margin:10px 0 2px}.card div{font-size:12px;color:#999}
+canvas{width:100%;image-rendering:pixelated;background:#050505;border-radius:4px}
+</style></head><body>
+<h1>Face styles on a 64×32 RGB LED panel</h1>
+<p>Each one is "talking" with fake speech so you can see the mouth movement and blinks.</p>
+<div class="grid" id="g"></div>
+<script>
+const W=64,H=32,S=12;
+const styles=[
+ {name:"1. Classic Bot",note:"Cyan square eyes, bar-graph mouth that bounces with the voice.",draw:(p,t,m,b)=>{
+   const c="#29e6ff";
+   for(const x of[14,42]){const h=b?1:8;rect(p,x,11-h/2+4-4,8,h,c)}
+   const n=9;for(let i=0;i<n;i++){const a=Math.max(1,Math.round(m*7*(0.5+0.5*Math.sin(t*9+i*1.3))));rect(p,14+i*4,25-a/2,3,a,c)}}},
+ {name:"2. Kawaii",note:"Big round eyes with sparkle, rosy cheeks, little 'o' mouth.",draw:(p,t,m,b)=>{
+   for(const x of[18,46]){if(b)rect(p,x-5,13,10,1,"#fff");else{disc(p,x,12,5,"#fff");disc(p,x,12,3,"#3a6bff");dot(p,x+1,10,"#fff")}}
+   disc(p,10,20,2.5,"#ff4f8a");disc(p,54,20,2.5,"#ff4f8a");
+   const r=1+m*3;ellipse(p,32,23,2+m*1.5,r,"#ff7aa8");if(m>.3)ellipse(p,32,23,1+m,r-1,"#300")}},
+ {name:"3. Visor",note:"Knight-Rider / Daft Punk style. One red scanner eye, waveform mouth.",draw:(p,t,m,b)=>{
+   rect(p,6,8,52,7,"#200");const sx=32+Math.sin(t*2)*22;for(let i=-6;i<=6;i++){const v=1-Math.abs(i)/7;rect(p,Math.round(sx+i),9,1,5,`rgba(255,${40*v|0},20,${v})`)}
+   for(let x=8;x<56;x++){const y=24+Math.round(Math.sin(x*.45+t*12)*m*5*Math.sin((x-8)/48*Math.PI));dot(p,x,y,"#ff3020")}}},
+ {name:"4. Jack-o'-lantern",note:"Seasonal one: triangle eyes and a jagged grin that opens as it talks.",draw:(p,t,m,b)=>{
+   const o="#ff8a00";const fl=.75+.25*Math.sin(t*20)*Math.sin(t*7);const col=`rgba(255,${140*fl|0},0,1)`;
+   for(const x of[17,45]){if(b){rect(p,x-5,12,10,1,col);continue}for(let r=0;r<8;r++)rect(p,x-r/1.3,6+r,1+r*1.5,1,col)}
+   const open=1+Math.round(m*5);for(let x=12;x<52;x++){const tooth=((x-12)%8<4)?1:0;const top=20+tooth;for(let y=top;y<top+open+2-tooth*2+(x%8<4?0:1);y++)dot(p,x,y,col)}}}
+];
+function dot(p,x,y,c){x=Math.round(x);y=Math.round(y);if(x>=0&&x<W&&y>=0&&y<H)p[y*W+x]=c}
+function rect(p,x,y,w,h,c){for(let j=0;j<h;j++)for(let i=0;i<w;i++)dot(p,x+i,y+j,c)}
+function ellipse(p,cx,cy,rx,ry,c){for(let y=-ry;y<=ry;y++)for(let x=-rx;x<=rx;x++)if((x*x)/(rx*rx)+(y*y)/(ry*ry)<=1)dot(p,cx+x,cy+y,c)}
+function disc(p,cx,cy,r,c){ellipse(p,cx,cy,r,r,c)}
+const cv=styles.map(s=>{const d=document.createElement("div");d.className="card";const c=document.createElement("canvas");c.width=W*S;c.height=H*S;d.append(c);d.insertAdjacentHTML("beforeend",`<h2>${s.name}</h2><div>${s.note}</div>`);g.append(d);return c.getContext("2d")});
+function speech(t){const syl=Math.max(0,Math.sin(t*11))*Math.max(0,Math.sin(t*1.7+1));return (t%6)>4.8?0:Math.min(1,syl*1.4)}
+function frame(ms){const t=ms/1000,m=speech(t),b=(t%3.7)<.12;
+ styles.forEach((s,i)=>{const p=new Array(W*H).fill(null);s.draw(p,t,m,b);const x=cv[i];x.fillStyle="#050505";x.fillRect(0,0,W*S,H*S);
+  for(let y=0;y<H;y++)for(let X=0;X<W;X++){x.beginPath();x.arc(X*S+S/2,y*S+S/2,S*.38,0,7);x.fillStyle=p[y*W+X]||"#141414";x.fill()}});
+ requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+</script></body></html>

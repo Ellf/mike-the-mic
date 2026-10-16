@@ -1,5 +1,31 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+# Talking Face
 
-# Talking Faces
+A small macOS app that shows an animated 64×32 LED-style face and reads Claude Code replies out loud, with the mouth lip-synced to the voice.
 
-Created in [T3 Code](https://t3.codes).
+Faces: Classic Bot, Kawaii, Visor, Jack-o'-lantern (⌘1–⌘4).
+
+## Build & run
+
+```sh
+./build.sh
+open "build/Talking Face.app"
+```
+
+## Hook it up to Claude Code
+
+Add a Stop hook to `~/.claude/settings.json`:
+
+```json
+"hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "/path/to/talking-faces/scripts/claude-stop-hook.sh", "timeout": 5 } ] } ] }
+```
+
+Test without Claude: `curl -X POST --data-binary "Hello there" localhost:5151/say`
+
+## Settings
+
+```sh
+defaults write io.purplehippo.talkingface voice -string "Kate (Enhanced)"
+defaults write io.purplehippo.talkingface lipSyncOffset -float 0.05   # mouth earlier (+) / later (-)
+```
+
+Keys: ⌘T stay on top · ⇧⌘M mute · Esc stop talking · ⌘J say a test line.
