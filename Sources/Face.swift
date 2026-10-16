@@ -31,6 +31,10 @@ struct EyeSpec {
     var height: Int
     var color: RGB
     var glance: Int
+    /// Painted over the top of a half-closed eye; nil just switches those LEDs off.
+    var lid: RGB? = nil
+    /// How far above the eye the eyebrows sit.
+    var browGap = 3
     var drawOpen: (inout Pixels, _ cx: Int, _ top: Int) -> Void
 }
 
@@ -78,29 +82,33 @@ enum FaceStyle: String, CaseIterable {
             }
             for x in 0..<64 { p.rect(x, 29, 1, 3, x % 9 == 0 ? RGB(45, 25, 10) : RGB(80, 45, 18)) }
             p.ellipse(32, 30, 15, 1.6, RGB(150, 120, 50))
-            // Stand, handle, gold band and a little red bow tie.
+            // Stand and handle.
             p.rect(31, 24, 2, 6, RGB(110, 110, 120))
             p.ellipse(32, 29, 5, 0.8, RGB(140, 140, 150))
             for y in 19...24 { let w = 7 - (y - 19) / 2; p.rect(32 - w / 2 - 1, y, w + 1, 1, RGB(70, 70, 85)) }
-            p.rect(25, 17, 14, 2, RGB(230, 185, 60))
-            for i in 0..<4 {
-                p.rect(28 + i, 18 - i / 2, 1, 1 + i, RGB(230, 30, 50))
-                p.rect(35 - i, 18 - i / 2, 1, 1 + i, RGB(230, 30, 50))
-            }
-            p.rect(31, 18, 2, 2, RGB(255, 70, 90))
-            // The grille head, with a mesh pattern.
+            // The grille head: darker mesh so the googly eyes stand out.
             for y in 1...17 {
                 for x in 21...43 {
                     let u = Double(x - 32) / 11, v = (Double(y) - 9) / 8.4
                     let d = u * u + v * v
                     guard d <= 1 else { continue }
-                    p.dot(x, y, d > 0.8 ? RGB(215, 220, 230) : (x + y) % 2 == 0 ? RGB(165, 170, 185) : RGB(105, 110, 125))
+                    p.dot(x, y, d > 0.8 ? RGB(165, 170, 185) : (x + y) % 2 == 0 ? RGB(105, 110, 125) : RGB(60, 63, 75))
                 }
             }
+            // Gold band, then a bow tie on the handle: two wings and a knot.
+            p.rect(25, 17, 15, 2, RGB(230, 185, 60))
+            for k in 1...4 {
+                let h = k == 1 ? 3 : 5
+                p.rect(31 - k, 21 - h / 2, 1, h, RGB(200, 20, 40))
+                p.rect(32 + k, 21 - h / 2, 1, h, RGB(200, 20, 40))
+            }
+            p.rect(31, 20, 2, 3, RGB(255, 80, 100))
             // Googly eyes: pupils sag with gravity and rattle around while he talks.
-            p.eyes(EyeSpec(centers: [27, 37], top: 3, width: 9, height: 9, color: white, glance: 0) { p, cx, top in
+            p.eyes(EyeSpec(centers: [27, 37], top: 3, width: 9, height: 9, color: white, glance: 0,
+                           lid: RGB(150, 155, 170), browGap: 2) { p, cx, top in
                 let cy = top + 4
                 let phase = cx < 32 ? 0.0 : 2.1
+                p.clearDisc(cx, cy, 5.2)          // dark rim around each googly eye
                 p.disc(cx, cy, 4.2, white)
                 let rattle = open * 1.8 + 0.25
                 let dx = sin(t * 9.3 + phase) * rattle + Double(glance) * 0.6
@@ -406,7 +414,16 @@ extension Pixels {
                 spec.drawOpen(&self, cx, top)
             case .half:
                 spec.drawOpen(&self, cx, top)
-                clear(cx - w / 2 - 1, top - 1, w + 3, h / 2 + 1)
+                if let lid = spec.lid {
+                    for y in top...(top + h / 2) {
+                        for x in (cx - w / 2)...(cx + w / 2) {
+                            let u = Double(x - cx) / (Double(w) / 2), v = Double(y - mid) / (Double(h) / 2)
+                            if u * u + v * v <= 1.05 { dot(x, y, y == top + h / 2 ? spec.color : lid) }
+                        }
+                    }
+                } else {
+                    clear(cx - w / 2 - 1, top - 1, w + 3, h / 2 + 1)
+                }
             case .shut:
                 rect(cx - w / 2, mid, w, 1, spec.color)
             case .closed:
@@ -425,7 +442,7 @@ extension Pixels {
 
             // Eyebrows only appear when an expression calls for them.
             guard brow != .none else { continue }
-            let browY = top - 3 - (brow == .raised ? 2 : 0)
+            let browY = max(0, top - spec.browGap - (brow == .raised ? 2 : 0))
             let span = w + 2
             for i in 0..<span {
                 let towardNose = Double(isLeft ? i : span - 1 - i) / Double(span - 1)
