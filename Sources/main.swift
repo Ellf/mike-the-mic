@@ -227,7 +227,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func pickVoice(_ sender: NSMenuItem) {
         guard let voice = sender.representedObject as? String else { return }
         Prefs.voice = voice.isEmpty ? nil : voice
-        Speaker.shared.speak(voice.isEmpty ? "This is the system voice." : "Hi Joshua, I'm \(voice.replacingOccurrences(of: " (Enhanced)", with: "").replacingOccurrences(of: " (Premium)", with: "")).")
+        Speaker.shared.speak(voice.isEmpty ? "This is the system voice." : "Hi, I'm \(voice.replacingOccurrences(of: " (Enhanced)", with: "").replacingOccurrences(of: " (Premium)", with: "")).")
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
